@@ -1,7 +1,8 @@
-#include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include "utils.h"
 
@@ -31,7 +32,7 @@ void snddie(SNDFILE *file) {
     exit(EXIT_FAILURE);
 }
 
-void strip_extension(char filename, const char ext[]) {
+void strip_extension(char filename[], const char ext[]) {
     if (strlen(filename) < strlen(ext) + 1)
         return;
     char *ext_in_name = &filename[strlen(filename) - strlen(ext) - 1];

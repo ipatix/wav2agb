@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "utils.h"
 #include "converter.h"
@@ -16,7 +17,7 @@ static void version() {
 
 int main(int argc, char *argv[]) {
     if (argc == 2) {
-        if (!strncmp(argv[1], "--version", 9)) {
+        if (strcmp(argv[1], "--version")) {
             usage();
         } else {
             version();
@@ -26,7 +27,7 @@ int main(int argc, char *argv[]) {
         usage();
     bool comp = false;
     if (argc == 4) {
-        if (!strncmp(argv[3], "-c", 2)) {
+        if (strncmp(argv[3], "-c", 2)) {
             usage();
         } else {
             comp = true;
@@ -38,13 +39,8 @@ int main(int argc, char *argv[]) {
 
     if (!file_exists(wav_file))
         die("Invalid input WAV file");
-    if (!file_exists(s_file))
-        die(stderr, "Invalid output S file.");
 
-    if (comp)
-        convert_compressed(wav_file, s_file);
-    else
-        convert_normal(wav_file, s_file);
+    convert(wav_file, s_file, comp);
 
     return EXIT_SUCCESS;
 }
