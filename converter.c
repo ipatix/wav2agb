@@ -117,15 +117,13 @@ void convert(const char wav_file[], const char s_file[], bool compress) {
     fprintf(out_file, "    .align  2\r\n\r\n%s:\r\n\r\n", symbol);
 
     fprintf(out_file, "    .byte   0x%X, 0x0, 0x0, 0x%X\r\n", compress ? 1 : 0, loop ? 0x40 : 0x0);
-    uint32_t pitch;
-    float pitchf;
+    float pitch;
     if (basenote == 60 && detune == 0) {
-        pitchf = (float)(pitch = ((uint32_t)samplerate * 1024));
+        pitch = (float)samplerate;
     } else {
-        printf("hello\n");
-        pitch = (uint32_t)(pitchf = (float)samplerate * 1024.f * powf(2, (float)(60 - basenote) / 12.f + (float)detune / 1200.f));
+        pitch = (float)samplerate * powf(2, (float)(60 - basenote) / 12.f + (float)detune / 1200.f);
     }
-    fprintf(out_file, "    .word   0x%08X  @ Mid-C ~ %f\r\n", pitch, pitchf);
+    fprintf(out_file, "    .word   0x%08X  @ Mid-C ~ %f\r\n", (uint32_t)(pitch * 1024.f), pitch);
     fprintf(out_file, "    .word   %d, %d\r\n", (int)loop_start, (int)length);
 
     int level = 0, approx_level = 0;
