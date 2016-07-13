@@ -16,6 +16,7 @@ static void version() {
 }
 
 int main(int argc, char *argv[]) {
+    //printf("wav2agb test version. Use at your own risk...\n");
     if (argc == 2) {
         if (strcmp(argv[1], "--version")) {
             usage();

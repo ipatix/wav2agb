@@ -4,6 +4,7 @@
 #include <math.h>
 #include <string.h>
 #include <libgen.h>
+#include <assert.h>
 
 #include "utils.h"
 #include "converter.h"
@@ -31,12 +32,17 @@ static int get_sample(SNDFILE *file, int loop_pos, bool loop_enabled) {
     if (loop_enabled && sf_seek(file, 0, SEEK_CUR) == loop_pos)
         save_loop = true;
     if (!sf_read_short(file, &data, 1)) {
-        if (loop_enabled)
+        if (loop_enabled) {
+            //fprintf(stderr, "restored loop samples\n");
             data = loop_sample;
-        data = 0;
+        } else {
+            data = 0;
+        }
     } else {
-        if (save_loop)
+        if (save_loop) {
             loop_sample = data;
+            //fprintf(stderr, "saved loop samples\n");
+        }
     }
     return data / 256;
 }
@@ -45,19 +51,22 @@ static const int8_t lookup_table[] = {
     0, 1, 4, 9, 16, 25, 36, 49, -64, -49, -36, -25, -16, -9, -4, -1 
 };
 
-static uint8_t get_nearest_lut_index(int *approx_level, int current_level) {
+static uint8_t get_nearest_lut_index(int *prev_level, int current_level) {
     int lowest_diff = 256;
     uint8_t lowest_diff_index = 0;
 
     for (uint8_t i = 0; i < 16; i++) {
-        if (abs(*approx_level + lookup_table[i] - current_level) < lowest_diff &&
-                (*approx_level + lookup_table[i] >= -128) &&
-                (*approx_level + lookup_table[i]) < 128) {
-            lowest_diff = abs(*approx_level + lookup_table[i] - current_level);
+        if (abs(*prev_level + lookup_table[i] - current_level) < lowest_diff &&
+                (*prev_level + lookup_table[i] >= -128) &&
+                (*prev_level + lookup_table[i]) < 128) {
+            lowest_diff = abs(*prev_level + lookup_table[i] - current_level);
             lowest_diff_index = i;
         }
     }
-    *approx_level += lookup_table[lowest_diff_index];
+    *prev_level += lookup_table[lowest_diff_index];
+    assert(*prev_level >= -128);
+    assert(*prev_level < 128);
+    assert(lowest_diff_index < 16);
     return lowest_diff_index;
 }
 
@@ -132,6 +141,7 @@ void convert(const char wav_file[], const char s_file[], bool compress) {
 
     if (compress) {
         for (sf_count_t i = 0; i < length;) {
+            //printf("Processing block starting at %d\n", (int)i);
             uint8_t msb = 0;
             uint8_t lsb = 0;
 
@@ -170,7 +180,7 @@ void convert(const char wav_file[], const char s_file[], bool compress) {
                 bin_write((uint8_t)(lsb | (msb << 4)));
                 if (++i > length)
                     break;
-            } while (block_align -= 2 > 0);
+            } while ((block_align -= 2) > 0);
         }
     } else {
         for (sf_count_t i = 0; i < length; i++) {
