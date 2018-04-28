@@ -53,16 +53,16 @@ static int get_sample(SNDFILE *file, int loop_start, int loop_end, bool loop_ena
 
     // apply hp to white noise
     float hp_in = noise;
-    static float dither_state = 0.0f;
-    dither_state += hp_alpha * (hp_in - dither_state);
-    float hp_out = hp_in - dither_state;
+    static float hp_state = 0.0f;
+    hp_state += hp_alpha * (hp_in - hp_state);
+    float hp_out = hp_in + hp_state;
 
 
     // normalize data to char range
     data *= 128.0f,
     // apply dither
     data += hp_out;
-    data = floorf(data + 0.5f);
+    data = floorf(data);
     int retval = (int)data;
     if (retval < -128)
         retval = -128;
