@@ -6,7 +6,7 @@
 #include "converter.h"
 
 static void usage() {
-    fprintf(stderr, "usage:\n$ wav2agb <input.wav> <output.s> [-s]\n");
+    fprintf(stderr, "usage:\n$ wav2agb <input.wav> <output.s> [-c]\n");
     exit(EXIT_FAILURE);
 }
 
