@@ -1,3 +1,5 @@
 *.o
 *.exe
 *.s
+
+wav2agb
