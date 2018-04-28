@@ -1,6 +1,6 @@
 CC = gcc
 STRIP = strip
-CFLAGS = -Werror -Wall -Wextra -Wconversion -std=c99 -O2 -DNDEBUG
+CFLAGS = -Wall -Wextra -Wconversion -std=c99 -O2 -DNDEBUG
 BINARY = wav2agb
 LIBS = -lsndfile -lm
 
