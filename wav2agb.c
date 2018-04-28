@@ -11,7 +11,7 @@ static void usage() {
 }
 
 static void version() {
-    printf("wav2agb v0.1 (c) 2016 by ipatix\n");
+    printf("wav2agb v0.2 (c) 2018 by ipatix\n");
     exit(EXIT_SUCCESS);
 }
 

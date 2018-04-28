@@ -5,9 +5,14 @@
 #include <string.h>
 #include <libgen.h>
 #include <assert.h>
+#include <time.h>
 
 #include "utils.h"
 #include "converter.h"
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 static int __block_pos;
 static FILE *__out_file;
@@ -25,26 +30,47 @@ static void bin_write(uint8_t data) {
     __block_pos %= 16;
 }
 
-static int get_sample(SNDFILE *file, int loop_pos, bool loop_enabled) {
-    static short loop_sample = 0;
-    short data;
-    bool save_loop = false;
-    if (loop_enabled && sf_seek(file, 0, SEEK_CUR) == loop_pos)
-        save_loop = true;
-    if (!sf_read_short(file, &data, 1)) {
-        if (loop_enabled) {
-            //fprintf(stderr, "restored loop samples\n");
-            data = loop_sample;
-        } else {
-            data = 0;
-        }
-    } else {
-        if (save_loop) {
-            loop_sample = data;
-            //fprintf(stderr, "saved loop samples\n");
-        }
+static float hp_alpha = 0.0f;
+
+static int get_sample(SNDFILE *file, int loop_start, int loop_end, bool loop_enabled) {
+    static float loop_sample = 0.0f;
+    float data;
+    sf_count_t pos = sf_seek(file, 0, SEEK_CUR);
+
+    if (!sf_read_float(file, &data, 1)) {
+        die("Read overlength");
     }
-    return data / 256;
+
+    if (loop_enabled && pos == loop_start) {
+        loop_sample = data;
+        //fprintf(stderr, "saved loop samples\n");
+    } else if (loop_enabled && pos == loop_end) {
+        data = loop_sample;
+        //fprintf(stderr, "restored loop samples\n");
+    }
+
+    float noise = (float)rand() * (1.0f / (float)RAND_MAX);
+
+    // apply hp to white noise
+    float hp_in = noise;
+    static float dither_state = 0.0f;
+    dither_state += hp_alpha * (hp_in - dither_state);
+    float hp_out = hp_in - dither_state;
+
+
+    // normalize data to char range
+    data *= 128.0f,
+    // apply dither
+    data += hp_out;
+    data = floorf(data + 0.5f);
+    int retval = (int)data;
+    if (retval < -128)
+        retval = -128;
+    else if (retval > 127)
+        retval = 127;
+    //printf("data: %d\n", retval);
+
+    return retval;
 }
 
 static const int8_t lookup_table[] = { 
@@ -71,6 +97,10 @@ static uint8_t get_nearest_lut_index(int *prev_level, int current_level) {
 }
 
 void convert(const char wav_file[], const char s_file[], bool compress) {
+    // get random seed for dither generator
+    time_t t;
+    srand((unsigned int)time(&t));
+
     SF_INFO in_info = {
         .format = 0,
     };
@@ -88,10 +118,16 @@ void convert(const char wav_file[], const char s_file[], bool compress) {
         exit(EXIT_FAILURE);
     }
 
+    // calc dither frequency rc
+    float rc = 1.0f / (3000.0f * 2.0f * (float)M_PI);
+    float dt = 1.0f / (float)samplerate;
+    hp_alpha = dt / (rc + dt);
+
     // get file length in samples
 
     sf_count_t length = sf_seek(in_file, 0, SEEK_END);
     sf_count_t loop_start = 0;
+    sf_count_t loop_end = 0;
     if (length == -1)
         snddie(in_file);
 
@@ -105,7 +141,8 @@ void convert(const char wav_file[], const char s_file[], bool compress) {
         if (in_instr.loops[0].mode != SF_LOOP_NONE) {
             loop = true;
             loop_start = in_instr.loops[0].start;
-            length = in_instr.loops[0].end;
+            loop_end = in_instr.loops[0].end;
+            length = loop_end + 1;
         }
         basenote = in_instr.basenote;
         detune = in_instr.detune;
@@ -146,7 +183,7 @@ void convert(const char wav_file[], const char s_file[], bool compress) {
             uint8_t lsb = 0;
 
             // encode first base sample
-            approx_level = get_sample(in_file, (int)loop_start, loop);
+            approx_level = get_sample(in_file, (int)loop_start, (int)loop_end, loop);
             level = approx_level;
 
             bin_write((uint8_t)level);
@@ -155,7 +192,7 @@ void convert(const char wav_file[], const char s_file[], bool compress) {
                 break;
 
             // encode first diff sample
-            level = get_sample(in_file, (int)loop_start, loop);
+            level = get_sample(in_file, (int)loop_start, (int)loop_end, loop);
             lsb = get_nearest_lut_index(&approx_level, level);
             bin_write(lsb);
 
@@ -165,7 +202,7 @@ void convert(const char wav_file[], const char s_file[], bool compress) {
             int block_align = 0x3E;
 
             do {
-                level = get_sample(in_file, (int)loop_start, loop);
+                level = get_sample(in_file, (int)loop_start, (int)loop_end, loop);
                 msb = get_nearest_lut_index(&approx_level, level);
 
                 if (++i > length) {
@@ -175,7 +212,7 @@ void convert(const char wav_file[], const char s_file[], bool compress) {
                     break;
                 }
 
-                level = get_sample(in_file, (int)loop_start, loop);
+                level = get_sample(in_file, (int)loop_start, (int)loop_end, loop);
                 lsb = get_nearest_lut_index(&approx_level, level);
                 bin_write((uint8_t)(lsb | (msb << 4)));
                 if (++i > length)
@@ -184,7 +221,7 @@ void convert(const char wav_file[], const char s_file[], bool compress) {
         }
     } else {
         for (sf_count_t i = 0; i < length; i++) {
-            bin_write((uint8_t)get_sample(in_file, (int)loop_start, loop));
+            bin_write((uint8_t)get_sample(in_file, (int)loop_start, (int)loop_end, loop));
         }
     }
     fprintf(out_file, "\r\n\r\n    .end\r\n");
