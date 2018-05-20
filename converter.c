@@ -43,10 +43,8 @@ static int get_sample(SNDFILE *file, int loop_start, int loop_end, bool loop_ena
 
     if (loop_enabled && pos == loop_start) {
         loop_sample = data;
-        //fprintf(stderr, "saved loop samples\n");
     } else if (loop_enabled && pos == loop_end) {
         data = loop_sample;
-        //fprintf(stderr, "restored loop samples\n");
     }
 
     float noise = (float)rand() * (1.0f / (float)RAND_MAX);
@@ -68,7 +66,6 @@ static int get_sample(SNDFILE *file, int loop_start, int loop_end, bool loop_ena
         retval = -128;
     else if (retval > 127)
         retval = 127;
-    //printf("data: %d\n", retval);
 
     return retval;
 }
@@ -127,7 +124,7 @@ void convert(const char wav_file[], const char s_file[], bool compress) {
 
     sf_count_t length = sf_seek(in_file, 0, SEEK_END);
     sf_count_t loop_start = 0;
-    sf_count_t loop_end = 0;
+    sf_count_t loop_end = length;
     if (length == -1)
         snddie(in_file);
 
@@ -139,13 +136,19 @@ void convert(const char wav_file[], const char s_file[], bool compress) {
     SF_INSTRUMENT in_instr;
     if (sf_command(in_file, SFC_GET_INSTRUMENT, &in_instr, sizeof(in_instr)) == SF_TRUE) {
         if (in_instr.loops[0].mode != SF_LOOP_NONE) {
+            if (in_instr.loops[0].start == 0 && in_instr.loops[0].end == 0)
+                goto escape_loop;
+            if (in_instr.loops[0].start >= in_instr.loops[0].end)
+                goto escape_loop;
             loop = true;
             loop_start = in_instr.loops[0].start;
             loop_end = in_instr.loops[0].end;
             length = loop_end + 1;
         }
+escape_loop:
         basenote = in_instr.basenote;
         detune = in_instr.detune;
+        //printf("read detune value of %d\n", (int)detune);
     }
 
     FILE *out_file = fopen(s_file, "w");
@@ -170,7 +173,7 @@ void convert(const char wav_file[], const char s_file[], bool compress) {
         pitch = (float)samplerate * powf(2, (float)(60 - basenote) / 12.f + (float)detune / 1200.f);
     }
     fprintf(out_file, "    .word   0x%08X  @ Mid-C ~ %f\r\n", (uint32_t)(pitch * 1024.f), pitch);
-    fprintf(out_file, "    .word   %d, %d\r\n", (int)loop_start, (int)length);
+    fprintf(out_file, "    .word   %d, %d\r\n", (int)loop_start, (int)loop_end);
 
     int level = 0, approx_level = 0;
 
@@ -188,7 +191,7 @@ void convert(const char wav_file[], const char s_file[], bool compress) {
 
             bin_write((uint8_t)level);
 
-            if (++i > length)
+            if (++i >= length)
                 break;
 
             // encode first diff sample
@@ -196,7 +199,7 @@ void convert(const char wav_file[], const char s_file[], bool compress) {
             lsb = get_nearest_lut_index(&approx_level, level);
             bin_write(lsb);
 
-            if (++i > length)
+            if (++i >= length)
                 break;
 
             int block_align = 0x3E;
@@ -205,7 +208,7 @@ void convert(const char wav_file[], const char s_file[], bool compress) {
                 level = get_sample(in_file, (int)loop_start, (int)loop_end, loop);
                 msb = get_nearest_lut_index(&approx_level, level);
 
-                if (++i > length) {
+                if (++i >= length) {
                     level = 0;
                     uint8_t lsb2 = get_nearest_lut_index(&approx_level, level);
                     bin_write((uint8_t)(lsb2 | (msb << 4)));
@@ -215,7 +218,7 @@ void convert(const char wav_file[], const char s_file[], bool compress) {
                 level = get_sample(in_file, (int)loop_start, (int)loop_end, loop);
                 lsb = get_nearest_lut_index(&approx_level, level);
                 bin_write((uint8_t)(lsb | (msb << 4)));
-                if (++i > length)
+                if (++i >= length)
                     break;
             } while ((block_align -= 2) > 0);
         }
