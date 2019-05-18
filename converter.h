@@ -1,5 +1,11 @@
 #pragma once
 
-#include <stdbool.h>
+#include <string>
 
-void convert(const char[], const char[], bool compress);
+enum class cmp_type {
+    none, dpcm
+};
+
+void set_dpcm_lookahead(size_t lookahead);
+void convert(const std::string&, const std::string&,
+        const std::string& sym, cmp_type ct);
