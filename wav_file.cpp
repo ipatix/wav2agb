@@ -116,7 +116,7 @@ wav_file::wav_file(const std::string& path) : loadBuffer(loadChunkSize)
             this->sampleRate = arr_u32(fmtChunk, 4);
             uint16_t block_align = arr_u16(fmtChunk, 12);
             uint16_t bits_per_sample = arr_u16(fmtChunk, 14);
-            if (fmtTag == 0) {
+            if (fmtTag == 1) {
                 // integer
                 if (block_align == 1 && bits_per_sample == 8)
                     this->fmt = format_type::u8;
