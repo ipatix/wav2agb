@@ -210,6 +210,8 @@ void wav_file::readData(size_t location, double *data, size_t len)
                     int32_t s =
                         (ld[i * fmt_size() + 0] << 0) |
                         (ld[i * fmt_size() + 1] << 8);
+                    s <<= 16;
+                    s >>= 16;
                     loadBuffer[i] = double(s) / 32768.0;
                 }
             } else if (fmt == format_type::s24) {
@@ -218,6 +220,8 @@ void wav_file::readData(size_t location, double *data, size_t len)
                         (ld[i * fmt_size() + 0] << 0) |
                         (ld[i * fmt_size() + 1] << 8) |
                         (ld[i * fmt_size() + 2] << 16);
+                    s <<= 8;
+                    s >>= 8;
                     loadBuffer[i] = double(s) / 8388608.0;
                 }
             } else if (fmt == format_type::s32) {
