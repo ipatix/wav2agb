@@ -35,6 +35,11 @@ static void data_write(std::ofstream& ofs, uint32_t& block_pos, int data, bool h
     block_pos %= 16;
 }
 
+template<typename T>
+const T& clamp(const T& v, const T& lo, const T& hi) {
+    return (v < lo) ? lo : (hi < v) ? hi : v;
+}
+
 static void convert_uncompressed(wav_file& wf, std::ofstream& ofs)
 {
     int loop_sample = 0;
@@ -45,7 +50,7 @@ static void convert_uncompressed(wav_file& wf, std::ofstream& ofs)
         double ds;
         wf.readData(i, &ds, 1);
         // TODO apply dither noise
-        int s = std::clamp(static_cast<int>(floor(ds * 128.0)), -128, 127);
+        int s = clamp(static_cast<int>(floor(ds * 128.0)), -128, 127);
 
         if (wf.getLoopEnabled() && i == wf.getLoopStart())
             loop_sample = s;
@@ -86,7 +91,7 @@ static void dpcm_lookahead(
                 sampleBuf + 1, lookahead - 1, newLevel);
 
         // TODO apply dither noise
-        int s = std::clamp(static_cast<int>(floor(sampleBuf[0] * 128.0)), -128, 127);
+        int s = clamp(static_cast<int>(floor(sampleBuf[0] * 128.0)), -128, 127);
 
         // TODO weigh the error squared
         int error = squared(s - newLevel) + recMinimumError;
@@ -117,7 +122,7 @@ static void convert_dpcm(wav_file& wf, std::ofstream& ofs)
             ds[wf.getLoopEnd() - i] = loop_sample;
         }
         // TODO apply dither noise
-        int s = std::clamp(static_cast<int>(floor(ds[0] * 128.0)), -128, 127);
+        int s = clamp(static_cast<int>(floor(ds[0] * 128.0)), -128, 127);
 
         if (wf.getLoopEnabled() && i == wf.getLoopStart())
             loop_sample = s;
@@ -153,7 +158,7 @@ initial_loop_enter:
 
 void set_dpcm_lookahead(size_t lookahead)
 {
-    dpcm_enc_lookahead = std::clamp<size_t>(lookahead, 1, 8);
+    dpcm_enc_lookahead = clamp<size_t>(lookahead, 1, 8);
 }
 
 void convert(const std::string& wav_file_str, const std::string& s_file_str,
