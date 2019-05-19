@@ -45,7 +45,7 @@ static void convert_uncompressed(wav_file& wf, std::ofstream& ofs)
         double ds;
         wf.readData(i, &ds, 1);
         // TODO apply dither noise
-        int s = std::clamp(static_cast<int>(round(ds * 128.0)), -128, 127);
+        int s = std::clamp(static_cast<int>(floor(ds * 128.0)), -128, 127);
 
         if (wf.getLoopEnabled() && i == wf.getLoopStart())
             loop_sample = s;
@@ -86,7 +86,7 @@ static void dpcm_lookahead(
                 sampleBuf + 1, lookahead - 1, newLevel);
 
         // TODO apply dither noise
-        int s = std::clamp(static_cast<int>(round(sampleBuf[0] * 128.0)), -128, 127);
+        int s = std::clamp(static_cast<int>(floor(sampleBuf[0] * 128.0)), -128, 127);
 
         // TODO weigh the error squared
         int error = squared(s - newLevel) + recMinimumError;
@@ -117,7 +117,7 @@ static void convert_dpcm(wav_file& wf, std::ofstream& ofs)
             ds[wf.getLoopEnd() - i] = loop_sample;
         }
         // TODO apply dither noise
-        int s = std::clamp(static_cast<int>(round(ds[0] * 128.0)), -128, 127);
+        int s = std::clamp(static_cast<int>(floor(ds[0] * 128.0)), -128, 127);
 
         if (wf.getLoopEnabled() && i == wf.getLoopStart())
             loop_sample = s;
