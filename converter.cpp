@@ -188,7 +188,7 @@ void convert(const std::string& wav_file_str, const std::string& s_file_str,
     agb_out(fout, "    .word   0x%08X  @ Mid-C ~%f\n",
             static_cast<uint32_t>(pitch * 1024.0),
             pitch);
-    agb_out(fout, "    .word   0x%u, %u\n", wf.getLoopStart(), wf.getLoopEnd());
+    agb_out(fout, "    .word   %u, %u\n", wf.getLoopStart(), wf.getLoopEnd());
 
     if (ct == cmp_type::none)
         convert_uncompressed(wf, fout);
