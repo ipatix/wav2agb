@@ -99,60 +99,66 @@ static std::string arg_input_file;
 static std::string arg_output_file;
 
 int main(int argc, char *argv[]) {
-    if (argc == 1)
-        usage();
+    try {
+        if (argc == 1)
+            usage();
 
-    for (int i = 1; i < argc; i++) {
-        std::string st(argv[i]);
-        if (st == "-s" || st == "--symbol") {
-            if (++i >= argc)
-                die("-s: missing symbol name\n");
-            arg_sym = argv[i];
-            fix_str(arg_sym);
-        } else if (st == "-c" || st == "--compress") {
-            arg_compress = cmp_type::dpcm;
-        } else if (st == "-l" || st == "--lookahead") {
-            if (++i >= argc)
-                die("-l: missing parameter");
-            set_dpcm_lookahead(std::stoul(argv[i], nullptr, 10));
-        } else if (st == "--version") {
-            version();
-        } else {
-            if (st == "--") {
+        for (int i = 1; i < argc; i++) {
+            std::string st(argv[i]);
+            if (st == "-s" || st == "--symbol") {
                 if (++i >= argc)
-                    die("--: missing file name\n");
-            }
-            if (!arg_input_file_read) {
-                arg_input_file = argv[i];
-                if (arg_input_file.size() < 1)
-                    die("empty input file name\n");
-                arg_input_file_read = true;
-            } else if (!arg_output_file_read) {
-                arg_output_file = argv[i];
-                if (arg_output_file.size() < 1)
-                    die("empty output file name\n");
-                arg_output_file_read = true;
+                    die("-s: missing symbol name\n");
+                arg_sym = argv[i];
+                fix_str(arg_sym);
+            } else if (st == "-c" || st == "--compress") {
+                arg_compress = cmp_type::dpcm;
+            } else if (st == "-l" || st == "--lookahead") {
+                if (++i >= argc)
+                    die("-l: missing parameter");
+                set_dpcm_lookahead(std::stoul(argv[i], nullptr, 10));
+            } else if (st == "--version") {
+                version();
             } else {
-                die("Too many files specified\n");
+                if (st == "--") {
+                    if (++i >= argc)
+                        die("--: missing file name\n");
+                }
+                if (!arg_input_file_read) {
+                    arg_input_file = argv[i];
+                    if (arg_input_file.size() < 1)
+                        die("empty input file name\n");
+                    arg_input_file_read = true;
+                } else if (!arg_output_file_read) {
+                    arg_output_file = argv[i];
+                    if (arg_output_file.size() < 1)
+                        die("empty output file name\n");
+                    arg_output_file_read = true;
+                } else {
+                    die("Too many files specified\n");
+                }
             }
         }
-    }
 
-    // check arguments
-    if (!arg_input_file_read) {
-        die("No input file specified\n");
-    }
+        // check arguments
+        if (!arg_input_file_read) {
+            die("No input file specified\n");
+        }
 
-    if (!arg_output_file_read) {
-        // create output file name if none is provided
-        arg_output_file = filename_without_ext(arg_input_file) + ".s";
-        arg_output_file_read = true;
-    }
+        if (!arg_output_file_read) {
+            // create output file name if none is provided
+            arg_output_file = filename_without_ext(arg_input_file) + ".s";
+            arg_output_file_read = true;
+        }
 
-    if (arg_sym.size() == 0) {
-        arg_sym = filename_without_dir(filename_without_ext(arg_output_file));
-        fix_str(arg_sym);
-    }
+        if (arg_sym.size() == 0) {
+            arg_sym = filename_without_dir(filename_without_ext(arg_output_file));
+            fix_str(arg_sym);
+        }
 
-    convert(arg_input_file, arg_output_file, arg_sym, arg_compress);
+        convert(arg_input_file, arg_output_file, arg_sym, arg_compress);
+        return 0;
+    } catch (const std::exception& e) {
+        fprintf(stderr, "std lib error:\n%s\n", e.what());
+    }
+    return 1;
 }

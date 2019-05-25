@@ -70,14 +70,10 @@ uint32_t wav_file::fmt_size() const
 
 wav_file::wav_file(const std::string& path) : loadBuffer(loadChunkSize)
 {
-    ifs.exceptions(std::ios::badbit | std::ios::eofbit | std::ios::failbit);
+    ifs.exceptions(std::ios::badbit | std::ios::eofbit);
     ifs.open(path, std::ios::binary);
     if (!ifs.good())
         throw std::runtime_error("failed to open file: " + path + ", reason: " + strerror(errno));
-    if (ifs.bad())
-        throw std::runtime_error("BLA");
-    if (ifs.fail())
-        throw std::runtime_error("AAAAA");
     if (!ifs.is_open())
         throw std::runtime_error("failed to open file: " + path + ", reason: " + strerror(errno));
 
@@ -103,9 +99,12 @@ wav_file::wav_file(const std::string& path) : loadBuffer(loadChunkSize)
     bool fmtChunkFound = false;
     // search all chunks
     std::streampos curPos;
-    while ((curPos = ifs.tellg()) < len) {
+    while ((curPos = ifs.tellg()) + 8 <= len) {
         chunkId = read_str(ifs, 4);
         uint32_t chunkLen = read_u32(ifs);
+        if (curPos + 8 + chunkLen > len)
+            throw std::runtime_error("ERROR: chunk goes beyond end of file");
+
         if (chunkId == "fmt ") {
             fmtChunkFound = true;
             std::vector<uint8_t> fmtChunk = read_arr(ifs, chunkLen);
