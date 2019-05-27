@@ -99,10 +99,10 @@ wav_file::wav_file(const std::string& path) : loadBuffer(loadChunkSize)
     bool fmtChunkFound = false;
     // search all chunks
     std::streampos curPos;
-    while ((curPos = ifs.tellg()) + 8 <= len) {
+    while ((curPos = ifs.tellg()) + std::streampos(8) <= len) {
         chunkId = read_str(ifs, 4);
         uint32_t chunkLen = read_u32(ifs);
-        if (curPos + 8 + chunkLen > len)
+        if (curPos + std::streampos(8) + std::streampos(chunkLen) > len)
             throw std::runtime_error("ERROR: chunk goes beyond end of file");
 
         if (chunkId == "fmt ") {
