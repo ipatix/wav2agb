@@ -87,15 +87,18 @@ static void dpcm_lookahead(
         int recMinimumError;
         size_t recMinimumErrorIndex;
 
+        // TODO apply dither noise
+        int s = clamp(static_cast<int>(floor(sampleBuf[0] * 128.0)), -128, 127);
+        int errorEstimation = squared(s - newLevel);
+        if (errorEstimation >= minimumError)
+            continue;
+
         dpcm_lookahead(recMinimumError, recMinimumErrorIndex,
                 sampleBuf + 1, lookahead - 1, newLevel);
 
-        // TODO apply dither noise
-        int s = clamp(static_cast<int>(floor(sampleBuf[0] * 128.0)), -128, 127);
-
         // TODO weigh the error squared
         int error = squared(s - newLevel) + recMinimumError;
-        if (error <= minimumError) {
+        if (error < minimumError) {
             if (newLevel <= 127 && newLevel >= -128) {
                 minimumError = error;
                 minimumErrorIndex = i;
