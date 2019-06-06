@@ -17,11 +17,16 @@ static void usage() {
     fprintf(stderr, "-s, --symbol <sym>       | symbol name for wave header (default: file name)\n");
     fprintf(stderr, "-l, --lookahead <amount> | DPCM compression lookahead 1..8 (default: 3)\n");
     fprintf(stderr, "-c, --compress           | compress output with DPCM\n");
+    fprintf(stderr, "--loop-start <pos>       | override loop start (integer)\n");
+    fprintf(stderr, "--loop-end <pos>         | override loop end (integer)\n");
+    fprintf(stderr, "--tune <cents>           | override tuning (float)\n");
+    fprintf(stderr, "--key <key>              | override midi key (int)\n");
+    fprintf(stderr, "--rate <rate>            | override base samplerate (int)\n");
     exit(1);
 }
 
 static void version() {
-    printf("wav2agb v1.0 (c) 2019 ipatix\n");
+    printf("wav2agb v1.1 (c) 2019 ipatix\n");
     exit(0);
 }
 
@@ -118,6 +123,33 @@ int main(int argc, char *argv[]) {
                 set_dpcm_lookahead(std::stoul(argv[i], nullptr, 10));
             } else if (st == "--version") {
                 version();
+            } else if (st == "--loop-start") {
+                if (++i >= argc)
+                    die("--loop-start: missing parameter");
+                uint32_t start = static_cast<uint32_t>(std::stoul(argv[i], nullptr, 10));
+                set_wav_loop_start(start);
+            } else if (st == "--loop-end") {
+                if (++i >= argc)
+                    die("--loop-end: missing parameter");
+                uint32_t end = static_cast<uint32_t>(std::stoul(argv[i], nullptr, 10));
+                set_wav_loop_end(end);
+            } else if (st == "--tune") {
+                if (++i >= argc)
+                    die("--tune: missing parameter");
+                double tune = std::stod(argv[i], nullptr);
+                set_wav_tune(tune);
+            } else if (st == "--key") {
+                if (++i >= argc)
+                    die("--key: missing parameter");
+                int key = std::stoi(argv[i], nullptr, 10);
+                if (key < 0) key = 0;
+                if (key > 127) key = 127;
+                set_wav_key(static_cast<uint8_t>(key));
+            } else if (st == "--rate") {
+                if (++i >= argc)
+                    die("--rate: missing parameter");
+                uint32_t rate = static_cast<uint32_t>(std::stoul(argv[i], nullptr, 10));
+                set_wav_rate(rate);
             } else {
                 if (st == "--") {
                     if (++i >= argc)

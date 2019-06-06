@@ -46,13 +46,13 @@ static void convert_uncompressed(wav_file& wf, std::ofstream& ofs)
 
     uint32_t block_pos = 0;
 
-    for (size_t i = 0; i < wf.getLoopEnd(); i++) {
+    for (size_t i = 0; i < wf.loopEnd; i++) {
         double ds;
         wf.readData(i, &ds, 1);
         // TODO apply dither noise
         int s = clamp(static_cast<int>(floor(ds * 128.0)), -128, 127);
 
-        if (wf.getLoopEnabled() && i == wf.getLoopStart())
+        if (wf.loopEnabled && i == wf.loopStart)
             loop_sample = s;
 
         data_write(ofs, block_pos, s, false);
@@ -60,6 +60,17 @@ static void convert_uncompressed(wav_file& wf, std::ofstream& ofs)
 
     data_write(ofs, block_pos, loop_sample, false);
 }
+
+static uint32_t wav_loop_start;
+static bool wav_loop_start_override = false;
+static uint32_t wav_loop_end;
+static bool wav_loop_end_override = false;
+static double wav_tune;
+static bool wav_tune_override = false;
+static uint8_t wav_key;
+static bool wav_key_override = false;
+static uint32_t wav_rate;
+static bool wav_rate_override = false;
 
 static size_t dpcm_enc_lookahead = 3;
 static const size_t DPCM_BLK_SIZE = 0x40;
@@ -116,18 +127,18 @@ static void convert_dpcm(wav_file& wf, std::ofstream& ofs)
     int minimumError;
     size_t minimumErrorIndex;
 
-    for (size_t i = 0; i <= wf.getLoopEnd(); i += DPCM_BLK_SIZE) {
+    for (size_t i = 0; i <= wf.loopEnd; i += DPCM_BLK_SIZE) {
         double ds[DPCM_BLK_SIZE];
         wf.readData(i, ds, DPCM_BLK_SIZE);
         // check if loop end is inside this block
-        if (i + DPCM_BLK_SIZE > wf.getLoopEnd()) {
-            assert(wf.getLoopEnd() - i < DPCM_BLK_SIZE);
-            ds[wf.getLoopEnd() - i] = loop_sample;
+        if (i + DPCM_BLK_SIZE > wf.loopEnd) {
+            assert(wf.loopEnd - i < DPCM_BLK_SIZE);
+            ds[wf.loopEnd - i] = loop_sample;
         }
         // TODO apply dither noise
         int s = clamp(static_cast<int>(floor(ds[0] * 128.0)), -128, 127);
 
-        if (wf.getLoopEnabled() && i == wf.getLoopStart())
+        if (wf.loopEnabled && i == wf.loopStart)
             loop_sample = s;
 
         data_write(ofs, block_pos, s, false);
@@ -164,6 +175,36 @@ void set_dpcm_lookahead(size_t lookahead)
     dpcm_enc_lookahead = clamp<size_t>(lookahead, 1, 8);
 }
 
+void set_wav_loop_start(uint32_t start)
+{
+    wav_loop_start = start;
+    wav_loop_start_override = true;
+}
+
+void set_wav_loop_end(uint32_t end)
+{
+    wav_loop_end = end;
+    wav_loop_end_override = true;
+}
+
+void set_wav_tune(double tune)
+{
+    wav_tune = tune;
+    wav_tune_override = true;
+}
+
+void set_wav_key(uint8_t key)
+{
+    wav_key = key;
+    wav_key_override = true;
+}
+
+void set_wav_rate(uint32_t rate)
+{
+    wav_rate = rate;
+    wav_rate_override = true;
+}
+
 void convert(const std::string& wav_file_str, const std::string& s_file_str,
         const std::string& sym, cmp_type ct)
 {
@@ -173,6 +214,24 @@ void convert(const std::string& wav_file_str, const std::string& s_file_str,
     if (!fout.is_open()) {
         perror("ofstream");
         throw std::runtime_error("unable to open output file");
+    }
+
+    // check command line overrides
+    if (wav_loop_start_override) {
+        wf.loopStart = std::min(wav_loop_start, wf.loopEnd);
+        wf.loopEnabled = true;
+    }
+    if (wav_loop_end_override) {
+        wf.loopEnd = std::min(wav_loop_end, wf.loopEnd);
+    }
+    if (wav_tune_override) {
+        wf.tuning = wav_tune;
+    }
+    if (wav_key_override) {
+        wf.midiKey = wav_key;
+    }
+    if (wav_rate_override) {
+        wf.sampleRate = wav_rate;
     }
 
     agb_out(fout, "    .section .rodata\n");
@@ -187,16 +246,16 @@ void convert(const std::string& wav_file_str, const std::string& s_file_str,
     else
         throw std::runtime_error("convert: invalid compression type");
 
-    agb_out(fout, "    .byte   0x%X, 0x0, 0x0, 0x%X\n", fmt, wf.getLoopEnabled() ? 0x40 : 0x0);
+    agb_out(fout, "    .byte   0x%X, 0x0, 0x0, 0x%X\n", fmt, wf.loopEnabled ? 0x40 : 0x0);
     double pitch;
-    if (wf.getMidiKey() == 60 && wf.getTuning() == 0.0)
-        pitch = wf.getSampleRate();
+    if (wf.midiKey == 60 && wf.tuning == 0.0)
+        pitch = wf.sampleRate;
     else
-        pitch = wf.getSampleRate() * pow(2.0, (60.0 - wf.getMidiKey()) / 12.0 + wf.getTuning() / 1200.0);
+        pitch = wf.sampleRate * pow(2.0, (60.0 - wf.midiKey) / 12.0 + wf.tuning / 1200.0);
     agb_out(fout, "    .word   0x%08X  @ Mid-C ~%f\n",
             static_cast<uint32_t>(pitch * 1024.0),
             pitch);
-    agb_out(fout, "    .word   %u, %u\n", wf.getLoopStart(), wf.getLoopEnd());
+    agb_out(fout, "    .word   %u, %u\n", wf.loopStart, wf.loopEnd);
 
     if (ct == cmp_type::none)
         convert_uncompressed(wf, fout);

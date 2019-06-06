@@ -12,15 +12,8 @@ public:
     wav_file(const std::string& path);
     ~wav_file();
 
-    uint32_t getLoopStart() const { return loopStart; }
-    uint32_t getLoopEnd() const { return loopEnd; }
-    bool getLoopEnabled() const { return loopEnabled; }
-    double getTuning() const { return tuning; }
-    uint8_t getMidiKey() const { return midiKey; }
-    uint32_t getSampleRate() const { return sampleRate; }
     void readData(size_t location, double *data, size_t len);
 private:
-
     std::ifstream ifs;
     std::streampos dataChunkPos;
     std::streampos dataChunkEndPos;
@@ -33,6 +26,7 @@ private:
         f32, f64,
     } fmt;
     uint32_t fmt_size() const;
+public:
     uint32_t loopStart = 0; // samples
     uint32_t loopEnd = std::numeric_limits<uint32_t>::max();   // samples
     bool loopEnabled = false;
