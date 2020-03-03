@@ -41,9 +41,9 @@ static uint16_t arr_u16(const std::vector<uint8_t>& arr, size_t pos)
     return val;
 }
 
-static uint16_t arr_u32(const std::vector<uint8_t>& arr, size_t pos)
+static uint32_t arr_u32(const std::vector<uint8_t>& arr, size_t pos)
 {
-    uint16_t val = uint16_t(arr.at(pos) | (arr.at(pos + 1) << 8) |
+    uint32_t val = uint32_t(arr.at(pos) | (arr.at(pos + 1) << 8) |
             (arr.at(pos + 2) << 16) | (arr.at(pos + 3) << 24));
     return val;
 }
