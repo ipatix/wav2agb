@@ -103,7 +103,7 @@ wav_file::wav_file(const std::string& path) : loadBuffer(loadChunkSize)
         chunkId = read_str(ifs, 4);
         uint32_t chunkLen = read_u32(ifs);
         if (curPos + std::streampos(8) + std::streampos(chunkLen) > len)
-            throw std::runtime_error("ERROR: chunk goes beyond end of file");
+            throw std::runtime_error("ERROR: chunk goes beyond end of file: offset=" + std::to_string(curPos));
 
         if (chunkId == "fmt ") {
             fmtChunkFound = true;
@@ -165,6 +165,11 @@ wav_file::wav_file(const std::string& path) : loadBuffer(loadChunkSize)
             //fprintf(stderr, "WARNING: ignoring unknown chunk type: <%s>\n", chunkId.c_str());
             ifs.seekg(chunkLen, ifs.cur);
         }
+
+        /* https://en.wikipedia.org/wiki/Resource_Interchange_File_Format#Explanation
+         * If chunk size is odd, skip the pad byte */
+        if ((chunkLen % 2) == 1)
+            ifs.seekg(1, ifs.cur);
     }
 
     if (!fmtChunkFound)
