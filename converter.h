@@ -16,4 +16,4 @@ void set_wav_key(uint8_t key);
 void set_wav_rate(uint32_t rate);
 
 void convert(const std::string&, const std::string&,
-        const std::string& sym, cmp_type ct);
+        const std::string& sym, cmp_type ct, bool verbose=false);

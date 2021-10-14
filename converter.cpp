@@ -8,6 +8,7 @@
 #include <cstdarg>
 #include <cassert>
 #include <cstring>
+#include <ctime>
 
 #include "wav_file.h"
 
@@ -129,7 +130,30 @@ static void dpcm_lookahead(
     }
 }
 
-static void convert_dpcm(wav_file& wf, std::ofstream& ofs)
+static double calculate_snr(std::vector<double>& uncompressedData, std::vector<int>& decompressedData)
+{
+    int sum_son = 0;
+    int sum_mum = 0;
+
+    assert(uncompressedData.size() == decompressedData.size());
+
+    for(int i = 0; i < uncompressedData.size(); i++)
+    {
+        int s = clamp(static_cast<int>(floor(uncompressedData[i] * 128.0)), -128, 127) + 128;
+        sum_son += s * s;
+        int sub = decompressedData[i] + 128 - s;
+        sum_mum += sub * sub;
+    }
+
+    if (sum_mum == 0)
+    {
+        return 100;
+    }
+
+    return 10 * std::log10((double)sum_son / sum_mum);
+}
+
+static void convert_dpcm(wav_file& wf, std::ofstream& ofs, bool verbose=false)
 {
     int loop_sample = 0;
 
@@ -137,6 +161,14 @@ static void convert_dpcm(wav_file& wf, std::ofstream& ofs)
 
     int minimumError;
     size_t minimumErrorIndex;
+
+    std::vector<double> uncompressedData;
+    std::vector<int> decompressedData;
+
+    clock_t startTime,endTime;
+    if (verbose) {
+        startTime = clock();
+    }
 
     for (size_t i = 0; i <= wf.loopEnd; i += DPCM_BLK_SIZE) {
         double ds[DPCM_BLK_SIZE];
@@ -146,6 +178,9 @@ static void convert_dpcm(wav_file& wf, std::ofstream& ofs)
             assert(wf.loopEnd - i < DPCM_BLK_SIZE);
             ds[wf.loopEnd - i] = loop_sample;
         }
+        if (verbose) {
+            uncompressedData.insert(uncompressedData.end(), std::begin(ds), std::end(ds));
+        }
         // TODO apply dither noise
         int s = clamp(static_cast<int>(floor(ds[0] * 128.0)), -128, 127);
 
@@ -153,6 +188,9 @@ static void convert_dpcm(wav_file& wf, std::ofstream& ofs)
             loop_sample = s;
 
         data_write(ofs, block_pos, s, false);
+        if (verbose) {
+            decompressedData.push_back(s);
+        }
 
         size_t innerLoopCount = 1;
         uint8_t outData = 0;
@@ -167,6 +205,9 @@ static void convert_dpcm(wav_file& wf, std::ofstream& ofs)
                     &ds[innerLoopCount], sampleBufReadLen, s);
             outData = static_cast<uint8_t>((minimumErrorIndex & 0xF) << 4);
             s += dpcmLookupTable[minimumErrorIndex];
+            if (verbose) {
+                decompressedData.push_back(s);
+            }
             innerLoopCount += 1;
 initial_loop_enter:
             sampleBufReadLen = std::min(dpcm_enc_lookahead, DPCM_BLK_SIZE - innerLoopCount);
@@ -176,8 +217,16 @@ initial_loop_enter:
             outData |= static_cast<uint8_t>(minimumErrorIndex & 0xF);
             s += dpcmLookupTable[minimumErrorIndex];
             innerLoopCount += 1;
+            if (verbose) {
+                decompressedData.push_back(s);
+            }
             data_write(ofs, block_pos, outData, true);
         } while (innerLoopCount < DPCM_BLK_SIZE);
+    }
+
+    if (verbose) {
+        endTime = clock();
+        printf("SNR: %.2fdB, run time: %.2fs\n", calculate_snr(uncompressedData, decompressedData), (double)(endTime - startTime) / CLOCKS_PER_SEC);
     }
 }
 
@@ -222,7 +271,7 @@ void set_wav_rate(uint32_t rate)
 }
 
 void convert(const std::string& wav_file_str, const std::string& s_file_str,
-        const std::string& sym, cmp_type ct)
+        const std::string& sym, cmp_type ct, bool verbose)
 {
     wav_file wf(wav_file_str);
 
@@ -276,7 +325,7 @@ void convert(const std::string& wav_file_str, const std::string& s_file_str,
     if (ct == cmp_type::none)
         convert_uncompressed(wf, fout);
     else if (ct == cmp_type::dpcm)
-        convert_dpcm(wf, fout);
+        convert_dpcm(wf, fout, verbose);
     else
         throw std::runtime_error("convert: invalid compression type");
 
