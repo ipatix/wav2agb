@@ -17,6 +17,7 @@ static void usage() {
     fprintf(stderr, "-s, --symbol <sym>       | symbol name for wave header (default: file name)\n");
     fprintf(stderr, "-l, --lookahead <amount> | DPCM compression lookahead 1..8 (default: 3)\n");
     fprintf(stderr, "-c, --compress           | compress output with DPCM\n");
+    fprintf(stderr, "-f, --fast-compress      | compress output with DPCM fast\n");
     fprintf(stderr, "--loop-start <pos>       | override loop start (integer)\n");
     fprintf(stderr, "--loop-end <pos>         | override loop end (integer)\n");
     fprintf(stderr, "--tune <cents>           | override tuning (float)\n");
@@ -117,6 +118,9 @@ int main(int argc, char *argv[]) {
                 fix_str(arg_sym);
             } else if (st == "-c" || st == "--compress") {
                 arg_compress = cmp_type::dpcm;
+            } else if (st == "-f" || st == "--compress-fast") {
+                arg_compress = cmp_type::dpcm;
+                enable_dpcm_lookahead_fast();
             } else if (st == "-l" || st == "--lookahead") {
                 if (++i >= argc)
                     die("-l: missing parameter");
