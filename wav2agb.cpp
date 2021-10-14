@@ -3,6 +3,7 @@
 #include <cstring>
 #include <cstdarg>
 #include <cassert>
+#include <ctime>
 
 #include <string>
 
@@ -101,6 +102,7 @@ static cmp_type arg_compress = cmp_type::none;
 static std::string arg_sym;
 static bool arg_input_file_read = false;
 static bool arg_output_file_read = false;
+static bool arg_verbose = false;
 static std::string arg_input_file;
 static std::string arg_output_file;
 
@@ -121,6 +123,8 @@ int main(int argc, char *argv[]) {
             } else if (st == "-f" || st == "--compress-fast") {
                 arg_compress = cmp_type::dpcm;
                 enable_dpcm_lookahead_fast();
+            } else if (st == "--verbose") {
+                arg_verbose = true;
             } else if (st == "-l" || st == "--lookahead") {
                 if (++i >= argc)
                     die("-l: missing parameter");
@@ -191,7 +195,15 @@ int main(int argc, char *argv[]) {
             fix_str(arg_sym);
         }
 
+        clock_t startTime,endTime;
+        if (arg_verbose) {
+            startTime = clock();
+        }
         convert(arg_input_file, arg_output_file, arg_sym, arg_compress);
+        if (arg_verbose) {
+            endTime = clock();
+            printf("run time: %.2fs\n", (double)(endTime - startTime) / CLOCKS_PER_SEC);
+        }
         return 0;
     } catch (const std::exception& e) {
         fprintf(stderr, "std lib error:\n%s\n", e.what());
