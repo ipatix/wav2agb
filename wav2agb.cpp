@@ -3,7 +3,6 @@
 #include <cstring>
 #include <cstdarg>
 #include <cassert>
-#include <ctime>
 
 #include <string>
 
@@ -195,15 +194,7 @@ int main(int argc, char *argv[]) {
             fix_str(arg_sym);
         }
 
-        clock_t startTime,endTime;
-        if (arg_verbose) {
-            startTime = clock();
-        }
-        convert(arg_input_file, arg_output_file, arg_sym, arg_compress);
-        if (arg_verbose) {
-            endTime = clock();
-            printf("run time: %.2fs\n", (double)(endTime - startTime) / CLOCKS_PER_SEC);
-        }
+        convert(arg_input_file, arg_output_file, arg_sym, arg_compress, arg_verbose);
         return 0;
     } catch (const std::exception& e) {
         fprintf(stderr, "std lib error:\n%s\n", e.what());
