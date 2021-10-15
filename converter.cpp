@@ -131,11 +131,8 @@ static void dpcm_lookahead(
 
     minimumError = std::numeric_limits<int>::max();
     minimumErrorIndex = dpcmLookupTable.size();
-    int s = clamp(static_cast<int>(floor(sampleBuf[0] * 128.0)), -128, 127);
-    std::vector<size_t> indexCandicateSet = dpcmIndexTable;
-    if (dpcm_lookahead_fast) {
-        indexCandicateSet = dpcmFastLookupTable[s - prevLevel + 255];
-    }
+    const int s = clamp(static_cast<int>(floor(sampleBuf[0] * 128.0)), -128, 127);
+    const std::vector<size_t> indexCandicateSet = dpcm_lookahead_fast? dpcmFastLookupTable[s - prevLevel + 255]: dpcmIndexTable;
 
     for (auto i : indexCandicateSet) {
         int newLevel = prevLevel + dpcmLookupTable[i];
