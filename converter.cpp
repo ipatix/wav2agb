@@ -130,7 +130,7 @@ static void dpcm_lookahead(
     }
 }
 
-static double calculate_snr(std::vector<double>& uncompressedData, std::vector<int>& decompressedData)
+static double calculate_snr(const std::vector<double>& uncompressedData, const std::vector<int>& decompressedData)
 {
     int sum_son = 0;
     int sum_mum = 0;
