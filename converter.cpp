@@ -8,6 +8,7 @@
 #include <cstdarg>
 #include <cassert>
 #include <cstring>
+#include <ctime>
 
 #include "wav_file.h"
 
@@ -72,10 +73,49 @@ static bool wav_key_override = false;
 static uint32_t wav_rate;
 static bool wav_rate_override = false;
 
+static bool dpcm_verbose = false;
+static bool dpcm_lookahead_fast = false;
 static size_t dpcm_enc_lookahead = 3;
 static const size_t DPCM_BLK_SIZE = 0x40;
 static const std::vector<int8_t> dpcmLookupTable = { 
     0, 1, 4, 9, 16, 25, 36, 49, -64, -49, -36, -25, -16, -9, -4, -1 
+};
+static const std::vector<size_t> dpcmIndexTable = {
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+};
+static const std::vector<const std::vector<size_t>> dpcmFastLookupTable = { 
+    {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, 
+    {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, 
+    {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, 
+    {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, 
+    {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, 
+    {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, 
+    {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, 
+    {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, 
+    {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, 
+    {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, 
+    {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, 
+    {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, 
+    {8, 9}, {8, 9}, {8, 9}, {8, 9}, {8, 9}, {8, 9}, {8, 9}, {8, 9}, {8, 9}, {8, 9}, {8, 9}, {8, 9}, {8, 9}, {8, 9}, {9, 10}, {9, 10}, 
+    {9, 10}, {9, 10}, {9, 10}, {9, 10}, {9, 10}, {9, 10}, {9, 10}, {9, 10}, {9, 10}, {9, 10}, {9, 10}, {10, 11}, {10, 11}, {10, 11}, {10, 11}, {10, 11}, 
+    {10, 11}, {10, 11}, {10, 11}, {10, 11}, {10, 11}, {10, 11}, {11, 12}, {11, 12}, {11, 12}, {11, 12}, {11, 12}, {11, 12}, {11, 12}, {11, 12}, {11, 12}, {12, 13}, 
+    {12, 13}, {12, 13}, {12, 13}, {12, 13}, {12, 13}, {12, 13}, {13, 14}, {13, 14}, {13, 14}, {13, 14}, {13, 14}, {14, 15}, {14, 15}, {14, 15}, {0, 15}, {0, 1, 15}, 
+    {1, 0}, {1, 2}, {1, 2}, {2, 1}, {2, 3}, {2, 3}, {2, 3}, {2, 3}, {3, 2}, {3, 4}, {3, 4}, {3, 4}, {3, 4}, {3, 4}, {3, 4}, {4, 3}, 
+    {4, 5}, {4, 5}, {4, 5}, {4, 5}, {4, 5}, {4, 5}, {4, 5}, {4, 5}, {5, 4}, {5, 6}, {5, 6}, {5, 6}, {5, 6}, {5, 6}, {5, 6}, {5, 6}, 
+    {5, 6}, {5, 6}, {5, 6}, {6, 5}, {6, 7}, {6, 7}, {6, 7}, {6, 7}, {6, 7}, {6, 7}, {6, 7}, {6, 7}, {6, 7}, {6, 7}, {6, 7}, {6, 7}, 
+    {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, 
+    {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, 
+    {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, 
+    {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, 
+    {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, 
+    {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, 
+    {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, 
+    {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, 
+    {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, 
+    {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, 
+    {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, 
+    {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, 
+    {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}, {7}
 };
 
 static int squared(int x) { return x * x; }
@@ -91,15 +131,16 @@ static void dpcm_lookahead(
 
     minimumError = std::numeric_limits<int>::max();
     minimumErrorIndex = dpcmLookupTable.size();
+    const int s = clamp(static_cast<int>(floor(sampleBuf[0] * 128.0)), -128, 127);
+    const std::vector<size_t> indexCandicateSet = dpcm_lookahead_fast? dpcmFastLookupTable[s - prevLevel + 255]: dpcmIndexTable;
 
-    for (size_t i = 0; i < dpcmLookupTable.size(); i++) {
+    for (auto i : indexCandicateSet) {
         int newLevel = prevLevel + dpcmLookupTable[i];
 
         int recMinimumError;
         size_t recMinimumErrorIndex;
 
         // TODO apply dither noise
-        int s = clamp(static_cast<int>(floor(sampleBuf[0] * 128.0)), -128, 127);
         int errorEstimation = squared(s - newLevel);
         if (errorEstimation >= minimumError)
             continue;
@@ -118,6 +159,29 @@ static void dpcm_lookahead(
     }
 }
 
+static double calculate_snr(const std::vector<double>& uncompressedData, const std::vector<int>& decompressedData)
+{
+    int sum_son = 0;
+    int sum_mum = 0;
+
+    assert(uncompressedData.size() == decompressedData.size());
+
+    for(int i = 0; i < uncompressedData.size(); i++)
+    {
+        int s = clamp(static_cast<int>(floor(uncompressedData[i] * 128.0)), -128, 127) + 128;
+        sum_son += s * s;
+        int sub = decompressedData[i] + 128 - s;
+        sum_mum += sub * sub;
+    }
+
+    if (sum_mum == 0)
+    {
+        return 100;
+    }
+
+    return 10 * std::log10((double)sum_son / sum_mum);
+}
+
 static void convert_dpcm(wav_file& wf, std::ofstream& ofs)
 {
     int loop_sample = 0;
@@ -127,6 +191,14 @@ static void convert_dpcm(wav_file& wf, std::ofstream& ofs)
     int minimumError;
     size_t minimumErrorIndex;
 
+    std::vector<double> uncompressedData;
+    std::vector<int> decompressedData;
+
+    clock_t startTime,endTime;
+    if (dpcm_verbose) {
+        startTime = clock();
+    }
+
     for (size_t i = 0; i <= wf.loopEnd; i += DPCM_BLK_SIZE) {
         double ds[DPCM_BLK_SIZE];
         wf.readData(i, ds, DPCM_BLK_SIZE);
@@ -135,6 +207,9 @@ static void convert_dpcm(wav_file& wf, std::ofstream& ofs)
             assert(wf.loopEnd - i < DPCM_BLK_SIZE);
             ds[wf.loopEnd - i] = loop_sample;
         }
+        if (dpcm_verbose) {
+            uncompressedData.insert(uncompressedData.end(), std::begin(ds), std::end(ds));
+        }
         // TODO apply dither noise
         int s = clamp(static_cast<int>(floor(ds[0] * 128.0)), -128, 127);
 
@@ -142,6 +217,9 @@ static void convert_dpcm(wav_file& wf, std::ofstream& ofs)
             loop_sample = s;
 
         data_write(ofs, block_pos, s, false);
+        if (dpcm_verbose) {
+            decompressedData.push_back(s);
+        }
 
         size_t innerLoopCount = 1;
         uint8_t outData = 0;
@@ -156,6 +234,9 @@ static void convert_dpcm(wav_file& wf, std::ofstream& ofs)
                     &ds[innerLoopCount], sampleBufReadLen, s);
             outData = static_cast<uint8_t>((minimumErrorIndex & 0xF) << 4);
             s += dpcmLookupTable[minimumErrorIndex];
+            if (dpcm_verbose) {
+                decompressedData.push_back(s);
+            }
             innerLoopCount += 1;
 initial_loop_enter:
             sampleBufReadLen = std::min(dpcm_enc_lookahead, DPCM_BLK_SIZE - innerLoopCount);
@@ -165,9 +246,27 @@ initial_loop_enter:
             outData |= static_cast<uint8_t>(minimumErrorIndex & 0xF);
             s += dpcmLookupTable[minimumErrorIndex];
             innerLoopCount += 1;
+            if (dpcm_verbose) {
+                decompressedData.push_back(s);
+            }
             data_write(ofs, block_pos, outData, true);
         } while (innerLoopCount < DPCM_BLK_SIZE);
     }
+
+    if (dpcm_verbose) {
+        endTime = clock();
+        printf("SNR: %.2fdB, run time: %.2fs\n", calculate_snr(uncompressedData, decompressedData), (double)(endTime - startTime) / CLOCKS_PER_SEC);
+    }
+}
+
+void enable_dpcm_verbose()
+{
+    dpcm_verbose = true;
+}
+
+void enable_dpcm_lookahead_fast()
+{
+    dpcm_lookahead_fast = true;
 }
 
 void set_dpcm_lookahead(size_t lookahead)
