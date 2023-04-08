@@ -158,7 +158,8 @@ wav_file::wav_file(const std::string& path) : loadBuffer(loadChunkSize)
                 if (loopType != 0)
                     throw std::runtime_error("ERROR: loop type not supported: " + std::to_string(loopType));
                 this->loopStart = arr_u32(smplChunk, 36 + 8);
-                this->loopEnd = arr_u32(smplChunk, 36 + 12);
+                // sampler chunks tell the last sample to be played (so including rather than excluding), thus +1
+                this->loopEnd = arr_u32(smplChunk, 36 + 12) + 1;
                 this->loopEnabled = true;
             }
         } else {
