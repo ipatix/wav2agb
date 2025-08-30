@@ -8,7 +8,7 @@
 #include <cstdarg>
 #include <cassert>
 #include <cstring>
-#include <ctime>
+#include <chrono>
 
 #include "wav_file.h"
 
@@ -83,7 +83,7 @@ static const std::vector<int8_t> dpcmLookupTable = {
 static const std::vector<size_t> dpcmIndexTable = {
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
 };
-static const std::vector<const std::vector<size_t>> dpcmFastLookupTable = { 
+static const std::vector<std::vector<size_t>> dpcmFastLookupTable = { 
     {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, 
     {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, 
     {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, {8}, 
@@ -166,16 +166,14 @@ static double calculate_snr(const std::vector<double>& uncompressedData, const s
 
     assert(uncompressedData.size() == decompressedData.size());
 
-    for(int i = 0; i < uncompressedData.size(); i++)
-    {
-        int s = clamp(static_cast<int>(floor(uncompressedData[i] * 128.0)), -128, 127) + 128;
+    for (size_t i = 0; i < uncompressedData.size(); i++) {
+        const int s = clamp(static_cast<int>(floor(uncompressedData[i] * 128.0)), -128, 127) + 128;
         sum_son += s * s;
-        int sub = decompressedData[i] + 128 - s;
+        const int sub = decompressedData[i] + 128 - s;
         sum_mum += sub * sub;
     }
 
-    if (sum_mum == 0)
-    {
+    if (sum_mum == 0) {
         return 100;
     }
 
@@ -194,10 +192,7 @@ static void convert_dpcm(wav_file& wf, std::ofstream& ofs)
     std::vector<double> uncompressedData;
     std::vector<int> decompressedData;
 
-    clock_t startTime,endTime;
-    if (dpcm_verbose) {
-        startTime = clock();
-    }
+    const auto startTime = std::chrono::high_resolution_clock::now();
 
     for (size_t i = 0; i <= wf.loopEnd; i += DPCM_BLK_SIZE) {
         double ds[DPCM_BLK_SIZE];
@@ -253,9 +248,12 @@ initial_loop_enter:
         } while (innerLoopCount < DPCM_BLK_SIZE);
     }
 
+    const auto endTime = std::chrono::high_resolution_clock::now();
+
     if (dpcm_verbose) {
-        endTime = clock();
-        printf("SNR: %.2fdB, run time: %.2fs\n", calculate_snr(uncompressedData, decompressedData), (double)(endTime - startTime) / CLOCKS_PER_SEC);
+        const auto dur = std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - startTime);
+        const double durSecs = static_cast<double>(dur.count()) / 1000000000.0;
+        printf("SNR: %.2fdB, run time: %.2fs\n", calculate_snr(uncompressedData, decompressedData), durSecs);
     }
 }
 

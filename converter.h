@@ -2,6 +2,7 @@
 
 #include <string>
 #include <algorithm>
+#include <cstdint>
 
 enum class cmp_type {
     none, dpcm

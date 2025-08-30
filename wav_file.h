@@ -4,6 +4,7 @@
 #include <fstream>
 #include <vector>
 #include <limits>
+#include <cstdint>
 
 #define WAV_INVALID_VAL 0xFFFFFFFFu
 
