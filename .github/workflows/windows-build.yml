@@ -1,0 +1,61 @@
+name: Windows Build (MinGW)
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - 'master'
+  workflow_dispatch:
+
+# MSYS2 How To:
+# https://github.com/marketplace/actions/setup-msys2
+
+jobs:
+  build:
+    name: Build Windows with MinGW (64 Bit)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    strategy:
+      matrix:
+        # ucrt64 currently has problem inizializing Qt, disable for now
+        # clang64 currently has problems compiling agbplay (we can probably fix that)
+        # clangarm64 not tested
+        sys: [ mingw64, ucrt64, clang64 ]
+
+    steps:
+      - name: Setup msys2/mingw64
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{matrix.sys}}
+          update: true
+          install: |
+            git
+            make
+          pacboy: |
+            gcc:p
+
+      - name: Check repository
+        uses: actions/checkout@v4
+
+      - name: Fix bad permissions/line endings
+        run: git reset --hard
+
+      - name: Checkout submodules
+        run: git submodule update --init --recursive
+
+      - name: Compile mingw binary
+        run: make RELEASE=1
+
+      - name: Package build artifacts
+        run: |
+          mkdir -p build_artifacts/wav2agb
+          cp wav2agb.exe build_artifacts/wav2agb/
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wav2agb-windows-${{matrix.sys}}
+          path: build_artifacts/
